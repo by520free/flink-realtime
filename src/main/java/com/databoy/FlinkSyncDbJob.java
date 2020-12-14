@@ -5,6 +5,7 @@ import cn.hutool.json.JSONUtil;
 import com.databoy.beans.DbDataBean;
 import com.databoy.udf.DbDataBean2JsonMapFunction;
 import com.databoy.udf.TableFilterFunction;
+import com.databoy.utils.KafkaUtil;
 import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
@@ -13,12 +14,6 @@ import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
-import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer011;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.common.serialization.StringDeserializer;
-
-
-import java.util.Properties;
 
 /**
  * 〈一句话功能简述）
@@ -35,12 +30,7 @@ public class FlinkSyncDbJob {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
         // 获取kafka数据源
-        Properties properties = new Properties();
-        properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,"master01:9092,slave01:9092,slave02:9092");
-        properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,"latest");
-        properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,StringDeserializer.class.getName());
-        DataStreamSource<String> dbSource = env.addSource(new FlinkKafkaConsumer<String>("maxwell-mydb", new SimpleStringSchema(), properties));
+        DataStreamSource<String> dbSource = env.addSource(new FlinkKafkaConsumer<String>("canal-mydb", new SimpleStringSchema(), KafkaUtil.consumerProperties));
 
         // ad、customer、flow、media、user、orderinfo
         // insert、update、bootstrap-insert
@@ -60,7 +50,6 @@ public class FlinkSyncDbJob {
 
                 }
 
-
                 return flag;
             }
         }).map(new MapFunction<String, DbDataBean>() {
@@ -78,8 +67,7 @@ public class FlinkSyncDbJob {
             }
         });
 
-        Properties producerProperties = new Properties();
-        properties.setProperty("bootstrap.servers", "hadoop100:9092,hadoop101:9092,hadoop102:9092");
+
 
         // 过滤出各个表的数据
         SingleOutputStreamOperator<String> adTableSource = filterDbSource.filter(new TableFilterFunction("ad")).map(new DbDataBean2JsonMapFunction());
@@ -90,12 +78,12 @@ public class FlinkSyncDbJob {
         SingleOutputStreamOperator<String> orderinfoTableSource = filterDbSource.filter(new TableFilterFunction("orderinfo")).map(new DbDataBean2JsonMapFunction());
 
         // 分流到dwd层topic
-        adTableSource.addSink(new FlinkKafkaProducer<String>("ods-ad",new SimpleStringSchema(),producerProperties));
-        mediaTableSource.addSink(new FlinkKafkaProducer<String>("ods-media",new SimpleStringSchema(),producerProperties));
-        flowTableSource.addSink(new FlinkKafkaProducer<String>("ods-flow",new SimpleStringSchema(),producerProperties));
-        customerTableSource.addSink(new FlinkKafkaProducer<String>("ods-customer",new SimpleStringSchema(),producerProperties));
-        userTableSource.addSink(new FlinkKafkaProducer<String>("ods-user",new SimpleStringSchema(),producerProperties));
-        orderinfoTableSource.addSink(new FlinkKafkaProducer<String>("ods-orderinfo", new SimpleStringSchema(),producerProperties));
+        adTableSource.addSink(new FlinkKafkaProducer<String>("ods-ad",new SimpleStringSchema(),KafkaUtil.producerProperties));
+        mediaTableSource.addSink(new FlinkKafkaProducer<String>("ods-media",new SimpleStringSchema(),KafkaUtil.producerProperties));
+        flowTableSource.addSink(new FlinkKafkaProducer<String>("ods-flow",new SimpleStringSchema(),KafkaUtil.producerProperties));
+        customerTableSource.addSink(new FlinkKafkaProducer<String>("ods-customer",new SimpleStringSchema(),KafkaUtil.producerProperties));
+        userTableSource.addSink(new FlinkKafkaProducer<String>("ods-user",new SimpleStringSchema(),KafkaUtil.producerProperties));
+        orderinfoTableSource.addSink(new FlinkKafkaProducer<String>("ods-orderinfo", new SimpleStringSchema(),KafkaUtil.producerProperties));
 
 
         env.execute("FlinkSyncDbJob");

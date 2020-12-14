@@ -8,23 +8,22 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
 
 /**
- * @author by_xiaopeng_27
- * @version V1.0
- * @Package com.databoy.app
- * @Description: TODO
- * @date 2020/12/13 21:59
+ * 〈一句话功能简述）
+ * 〈〉
+ *
+ * @author by_zft_xiaopeng
+ * @create 2020/12/14
+ * @since 1.0.0
  */
-public class DwdAdAppJob {
+public class DwdUserAppJob {
 
     public static void main(String[] args) throws Exception {
-
-
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
-        DataStreamSource<String> adSource = env.addSource(new FlinkKafkaConsumer<String>("ods-ad", new SimpleStringSchema(), KafkaUtil.consumerProperties));
+        DataStreamSource<String> userSource = env.addSource(new FlinkKafkaConsumer<String>("ods-user", new SimpleStringSchema(), KafkaUtil.consumerProperties));
 
-        adSource.addSink(new PhoenixSinkFunction("ad"));
+        userSource.addSink(new PhoenixSinkFunction("user"));
 
-        env.execute("DwdAdAppJob");
+        env.execute("DwdMeidaAppJob");
     }
 }
