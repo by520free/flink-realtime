@@ -2,6 +2,9 @@ package com.databoy;
 
 import cn.hutool.json.JSONUtil;
 import com.databoy.beans.Customer;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.table.api.TableResult;
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.junit.Test;
 
 /**
@@ -22,5 +25,38 @@ public class TestDemo {
         Customer customer = JSONUtil.toBean(str, Customer.class);
 
         System.out.println(customer.getCustomerId());
+    }
+
+
+    @Test
+    public void tableDemo() throws Exception {
+
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+        StreamTableEnvironment tblEnv = StreamTableEnvironment.create(env);
+
+
+        String sql = "CREATE TABLE student (\n" +
+                "  `user_id` STRING,\n" +
+                "  `name` STRING,\n" +
+                "  `age` INT,\n" +
+                "  `gender` STRING,\n" +
+                "  `ts` TIMESTAMP\n" +
+                ") WITH (\n" +
+                "  'connector' = 'kafka',\n" +
+                "  'topic' = 'test',\n" +
+                "  'properties.bootstrap.servers' = 'master01:9092,slave01:9092,slave02:9092',\n" +
+                "  'properties.group.id' = 'testGroup',\n" +
+                "  'scan.startup.mode' = 'earliest-offset',\n" +
+                "  'format' = 'json'\n" +
+                ")\n";
+
+        tblEnv.executeSql(sql);
+
+        TableResult result = tblEnv.executeSql("select * from student");
+
+        result.print();
+
+        tblEnv.execute("tableDemo");
     }
 }
