@@ -27,8 +27,8 @@ public class FirstOrderFilterFunction extends RichFilterFunction<OrderInfoDetail
     public void open(Configuration conf) throws Exception {
 
         connection = PhoenixUtil.createConnection();
-        connection.prepareStatement("select \"statu\" from \"order_statu\" where \"customer_id\"=?");
-        connection.prepareStatement("UPSERT INTO \"order_statu\" VALUES(?,?)");
+        orderStatusStatement = connection.prepareStatement("select \"statu\" from \"order_statu\" where \"customer_id\"=?");
+        orderStatusInsertStatement = connection.prepareStatement("UPSERT INTO \"order_statu\" VALUES(?,?)");
     }
 
     @Override
@@ -50,6 +50,7 @@ public class FirstOrderFilterFunction extends RichFilterFunction<OrderInfoDetail
             orderStatusInsertStatement.setString(1,orderInfoDetail.getCustomerId());
             orderStatusInsertStatement.setBoolean(2,true);
             orderStatusInsertStatement.execute();
+            connection.commit();
 
             flag = true;
         }

@@ -2,10 +2,19 @@ package com.databoy;
 
 import cn.hutool.json.JSONUtil;
 import com.databoy.beans.Customer;
+import com.databoy.udf.MyEsSinkFunction;
+import com.databoy.utils.KafkaUtil;
+import org.apache.flink.api.common.serialization.SimpleStringSchema;
+import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.table.api.TableResult;
-import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
+import org.apache.flink.streaming.connectors.elasticsearch.util.RetryRejectedExecutionFailureHandler;
+import org.apache.flink.streaming.connectors.elasticsearch7.ElasticsearchSink;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
+import org.apache.http.HttpHost;
 import org.junit.Test;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 〈一句话功能简述）
@@ -33,30 +42,18 @@ public class TestDemo {
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
-        StreamTableEnvironment tblEnv = StreamTableEnvironment.create(env);
+        DataStreamSource<String> dataStreamSource = env.addSource(new FlinkKafkaConsumer<String>("ods-orderinfo", new SimpleStringSchema(), KafkaUtil.consumerProperties));
 
+        List<HttpHost> httpHosts = new ArrayList<>();
+        httpHosts.add(new HttpHost("172.26.13.85", 9200, "http"));
 
-        String sql = "CREATE TABLE student (\n" +
-                "  `user_id` STRING,\n" +
-                "  `name` STRING,\n" +
-                "  `age` INT,\n" +
-                "  `gender` STRING,\n" +
-                "  `ts` TIMESTAMP\n" +
-                ") WITH (\n" +
-                "  'connector' = 'kafka',\n" +
-                "  'topic' = 'test',\n" +
-                "  'properties.bootstrap.servers' = 'master01:9092,slave01:9092,slave02:9092',\n" +
-                "  'properties.group.id' = 'testGroup',\n" +
-                "  'scan.startup.mode' = 'earliest-offset',\n" +
-                "  'format' = 'json'\n" +
-                ")\n";
+        // use a ElasticsearchSink.Builder to create an ElasticsearchSink
+        ElasticsearchSink.Builder<String> esSinkBuilder = new ElasticsearchSink.Builder<>(httpHosts,new MyEsSinkFunction());
+        esSinkBuilder.setBulkFlushMaxActions(1);
+        esSinkBuilder.setFailureHandler(new RetryRejectedExecutionFailureHandler());
 
-        tblEnv.executeSql(sql);
+        dataStreamSource.addSink(esSinkBuilder.build());
 
-        TableResult result = tblEnv.executeSql("select * from student");
-
-        result.print();
-
-        tblEnv.execute("tableDemo");
+        env.execute("tableDemo");
     }
 }
